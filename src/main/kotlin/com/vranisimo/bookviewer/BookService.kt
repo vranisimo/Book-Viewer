@@ -9,7 +9,7 @@ class BookService(val db: BookRepository) {
 
     fun findBooks(): List<Book> = db.findBook()
 
-    fun findBook(isbn : String) : Book?{
+    fun findBook(isbn: String): Book? {
         return db.findBook(isbn)
     }
 
