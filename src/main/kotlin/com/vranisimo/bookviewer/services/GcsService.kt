@@ -2,24 +2,40 @@ package com.vranisimo.bookviewer.services
 
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.StorageOptions
+import org.springframework.beans.factory.annotation.Value
 import java.util.concurrent.TimeUnit
 
 object GcsService {
     private val storage: Storage = StorageOptions.getDefaultInstance().service
 
-    private var BOOK_BUCKET = "book-pdf"
-    private var BOOK_PAGE_BUCKET = "book_pages"
+    @Value("\${com.vranisimo.bookviewer.gcs.bucket.book}")
+    private val BOOK_BUCKET_NAME: String = "book_pdf"
 
-    private var PDF_EXTENSION = ".pdf"
-    private var JPEG_EXTENSION = ".jpeg"
+    @Value("\${com.vranisimo.bookviewer.gcs.bucket.bookpage}")
+    private val BOOK_PAGE_BUCKET_NAME: String = "book_pages"
+
+    private val PDF_EXTENSION = ".pdf"
+    private val JPEG_EXTENSION = ".jpeg"
 
     fun storeBookPdf(isbn: String, pdfData: ByteArray) {
-        uploadFile(BOOK_BUCKET, pdfData, isbn + PDF_EXTENSION)
+        uploadFile(BOOK_BUCKET_NAME, pdfData, isbn + PDF_EXTENSION)
     }
 
     // TODO use in consumers
     fun storeBookPage(isbn: String, pageNumber: Int, jpegData: ByteArray) {
-        uploadFile(BOOK_PAGE_BUCKET, jpegData, isbn + "_" + pageNumber + JPEG_EXTENSION)
+        uploadFile(BOOK_PAGE_BUCKET_NAME, jpegData, isbn + "_" + pageNumber + JPEG_EXTENSION)
+    }
+
+    // TODO use in consumers
+    fun getBookPdf(isbn: String): ByteArray? {
+        val bucketName = BOOK_BUCKET_NAME
+        val bucket = storage.get(bucketName)
+            ?: error("Bucket $bucketName does not exist! To see your existing buckets, use command 'info'.")
+
+        val blob = bucket.get(isbn)
+            ?: error("Blob $isbn does not exist! To see blobs in bucket $bucketName, use command 'info $bucketName'.")
+
+        return blob.getContent()
     }
 
     private fun uploadFile(bucketName: String, fileData: ByteArray, blobName: String) {
@@ -30,18 +46,7 @@ object GcsService {
     }
 
     fun getBookPageSignedUrl(isbn: String, pageNumber: Int): String {
-        return getSignedUrl(BOOK_PAGE_BUCKET, getBookPageBlobName(isbn, pageNumber))
-    }
-
-    fun getBookPdf(isbn: String): ByteArray? {
-        val bucketName = BOOK_BUCKET
-        val bucket = storage.get(bucketName)
-            ?: error("Bucket $bucketName does not exist! To see your existing buckets, use command 'info'.")
-
-        val blob = bucket.get(isbn)
-            ?: error("Blob $isbn does not exist! To see blobs in bucket $bucketName, use command 'info $bucketName'.")
-
-        return blob.getContent()
+        return getSignedUrl(BOOK_PAGE_BUCKET_NAME, getBookPageBlobName(isbn, pageNumber))
     }
 
     private fun getBookPageBlobName(isbn: String, pageNumber: Int): String {

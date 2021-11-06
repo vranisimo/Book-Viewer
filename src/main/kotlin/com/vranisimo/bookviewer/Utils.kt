@@ -1,6 +1,7 @@
 package com.vranisimo.bookviewer
 
 import org.slf4j.LoggerFactory
+import org.slf4j.Logger
 
 
 class Utils {
@@ -9,7 +10,7 @@ class Utils {
      * The validation contains of a regex and checksum check.
      */
     companion object {
-        val logger = LoggerFactory.getLogger(this.javaClass)
+        val logger: Logger = LoggerFactory.getLogger(this.javaClass)
 
         fun getIsbnDigitsOnly(isbn: String): String {
             return isbn
