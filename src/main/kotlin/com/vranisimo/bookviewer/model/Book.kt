@@ -7,7 +7,7 @@ import org.springframework.data.relational.core.mapping.Table
 
 @Table("book")
 data class Book(
-    @kotlin.jvm.Transient
+    @Transient
     @Id var id: String?,
     var isbn: String,
 

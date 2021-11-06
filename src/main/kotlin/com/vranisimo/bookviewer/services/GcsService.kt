@@ -1,4 +1,4 @@
-package com.vranisimo.bookviewer
+package com.vranisimo.bookviewer.services
 
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.StorageOptions
@@ -31,6 +31,17 @@ object GcsService {
 
     fun getBookPageSignedUrl(isbn: String, pageNumber: Int): String {
         return getSignedUrl(BOOK_PAGE_BUCKET, getBookPageBlobName(isbn, pageNumber))
+    }
+
+    fun getBookPdf(isbn: String): ByteArray? {
+        val bucketName = BOOK_BUCKET
+        val bucket = storage.get(bucketName)
+            ?: error("Bucket $bucketName does not exist! To see your existing buckets, use command 'info'.")
+
+        val blob = bucket.get(isbn)
+            ?: error("Blob $isbn does not exist! To see blobs in bucket $bucketName, use command 'info $bucketName'.")
+
+        return blob.getContent()
     }
 
     private fun getBookPageBlobName(isbn: String, pageNumber: Int): String {

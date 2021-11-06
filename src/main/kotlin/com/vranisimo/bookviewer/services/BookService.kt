@@ -1,4 +1,4 @@
-package com.vranisimo.bookviewer
+package com.vranisimo.bookviewer.services
 
 import com.vranisimo.bookviewer.model.Book
 import com.vranisimo.bookviewer.model.BookRepository
