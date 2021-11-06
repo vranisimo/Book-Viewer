@@ -1,5 +1,6 @@
-package com.vranisimo.bookviewer.model
+package com.vranisimo.bookviewer.repository
 
+import com.vranisimo.bookviewer.model.Book
 import org.springframework.data.jdbc.repository.query.Query
 import org.springframework.data.repository.CrudRepository
 

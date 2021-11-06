@@ -1,7 +1,7 @@
 package com.vranisimo.bookviewer.services
 
 import com.vranisimo.bookviewer.model.User
-import com.vranisimo.bookviewer.model.UserRepository
+import com.vranisimo.bookviewer.repository.UserRepository
 import org.springframework.stereotype.Service
 
 @Service

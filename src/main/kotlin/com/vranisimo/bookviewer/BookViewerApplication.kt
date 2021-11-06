@@ -1,21 +1,22 @@
 package com.vranisimo.bookviewer
 
+import com.vranisimo.bookviewer.jwt.TokenUtil
 import com.vranisimo.bookviewer.model.*
 import com.vranisimo.bookviewer.services.BookService
 import com.vranisimo.bookviewer.services.GcsService
 import com.vranisimo.bookviewer.services.UserService
-import io.jsonwebtoken.Jwts
-import io.jsonwebtoken.SignatureAlgorithm
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
 import org.springframework.boot.runApplication
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
-import java.util.*
 
 
 @SpringBootApplication(exclude = [SecurityAutoConfiguration::class])
@@ -28,32 +29,41 @@ fun main(args: Array<String>) {
 @RestController
 @RequestMapping("/book")
 class BookResource(val bookService: BookService, val userService: UserService) {
-
-    val TOKEN_EXPIRATION_MS = 60 * 24 * 1000 // 24 hours
-
-    val JWT_SECRET_KEY = "secret" // TODO change secret to something else
-
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
+    companion object {
+        @Value("\${com.vranisimo.bookviewer.username.minlength}")
+        const val USERNAME_MIN_LENGTH: Int = 8
+
+        @Value("\${com.vranisimo.bookviewer.username.maxlength}")
+        const val USERNAME_MAX_LENGTH: Int = 64
+
+        @Value("\${com.vranisimo.bookviewer.password.minlength}")
+        const val PASSWORD_MIN_LENGTH: Int = 8
+
+        @Value("\${com.vranisimo.bookviewer.password.maxlength}")
+        const val PASSWORD_MAX_LENGTH: Int = 64
+    }
+
+    @Autowired
+    private val tokenUtils: TokenUtil? = null
+
     @GetMapping("/all", produces = ["application/json"])
-    fun getAllBooks(@RequestParam token: String?): ResponseEntity<Any> {
-        try {
-            if (token == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("authentication token is required")
-            }
-
-            val body = Jwts.parser().setSigningKey(JWT_SECRET_KEY).parseClaimsJws(token).body
-//            body.issuer
-            // TODO
-
-        } catch (e: Exception) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated")
+    fun getAllBooks(@RequestHeader(value = "Authorization") token: String?): ResponseEntity<Any> {
+        // TODO move outside
+        if (SecurityContextHolder.getContext().authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
         }
+
         return ResponseEntity.ok(booksToJsonResponse(bookService.findBooks()))
     }
 
     @GetMapping("", produces = ["application/json"])
     fun getBookByIsbn(@RequestParam(required = false) isbn: String): ResponseEntity<Any> {
+        // TODO move outside
+        if (SecurityContextHolder.getContext().authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+        }
 
         // validate isbn
         if (!Utils.isIsbnValidISBN13(isbn)) {
@@ -72,15 +82,19 @@ class BookResource(val bookService: BookService, val userService: UserService) {
         @RequestParam isbn: String,
         @RequestParam pageNumber: Int
     ): ResponseEntity<Any> {
+        // TODO move outside
+        if (SecurityContextHolder.getContext().authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+        }
 
         // validate isbn
         if (!Utils.isIsbnValidISBN13(isbn)) {
-            logger.error("ISBN '$isbn' is not valid")
             return ResponseEntity.badRequest().body(ErrorMessage("Isbn '$isbn' is not valid"))
         }
 
         if (pageNumber == 0) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Page numbers starts from 1")
+            return ResponseEntity.badRequest()
+                .body(ErrorMessage("Incorrect page number $pageNumber. Page number starts from 1"))
         }
 
         val isbnDigitsOnly = Utils.getIsbnDigitsOnly(isbn);
@@ -91,18 +105,12 @@ class BookResource(val bookService: BookService, val userService: UserService) {
                 .body(ErrorMessage("A book with ISBN '$isbn' is not found"))
 
         if (pageNumber > book.page_count) {
-            logger.error("A book with ISBN '$isbn' does not contain a page $pageNumber")
-            throw ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "A book with ISBN '$isbn' does not contain a page $pageNumber"
-            )
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorMessage("A book with ISBN '$isbn' does not contain a page $pageNumber"))
         }
         if (!book.is_processed) {
-            logger.error("A book with ISBN '$isbn' is not processed yet")
-            throw ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "A book with ISBN '$isbn' is not processed yet"
-            )
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorMessage("A book with ISBN '$isbn' is not processed yet"))
         }
 
         return ResponseEntity.ok(GcsService.getBookPageSignedUrl(isbnDigitsOnly, pageNumber))
@@ -113,6 +121,11 @@ class BookResource(val bookService: BookService, val userService: UserService) {
         @RequestParam("pdfData") file: MultipartFile,
         @RequestParam isbn: String
     ): ResponseEntity<Any> {
+        // TODO move outside
+        if (SecurityContextHolder.getContext().authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+        }
+
         // validate isbn
         if (!Utils.isIsbnValidISBN13(isbn)) {
             return ResponseEntity.badRequest().body(ErrorMessage("Isbn '$isbn' is not valid"))
@@ -120,15 +133,15 @@ class BookResource(val bookService: BookService, val userService: UserService) {
 
         val isbnDigitsOnly: String = Utils.getIsbnDigitsOnly(isbn)
 
+        // check if a book with ISBN already exist
         val bookFromDatabase: Book? = bookService.findBook(Utils.getIsbnDigitsOnly(isbn))
         if (bookFromDatabase != null) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorMessage("A book with ISBN '$isbn' is already uploaded"))
         }
 
-        val book = Book(null, isbnDigitsOnly, 0, 0, false)
-
         // insert book row into the database
+        val book = Book(null, isbnDigitsOnly, 0, 0, false)
         bookService.storeBook(book)
 
         // store book PDF on object storage
@@ -141,11 +154,11 @@ class BookResource(val bookService: BookService, val userService: UserService) {
     }
 
     @PostMapping("register")
-    fun register(@RequestBody body: UserDTO): ResponseEntity<Any> {
-        logger.info("body:\n${body.username} ${body.email} ${body.password}")
+    fun register(@RequestBody body: UserDTO): ResponseEntity<Any>? {
+        // NOTE no need to validate token here
 
-        if (!validateUsername(body.username) || !validatePassword(body.password)) {
-            return ResponseEntity.badRequest().body(ErrorMessage("An username or password is not valid"))
+        if (validateUsernameAndPassword(body.username, body.password) != null){
+            return validateUsernameAndPassword(body.username, body.password)
         }
 
         // check if user with the same username already exist
@@ -174,40 +187,49 @@ class BookResource(val bookService: BookService, val userService: UserService) {
     fun login(
         @RequestBody body: LoginDTO
     ): ResponseEntity<Any>? {
-        if (!validateUsername(body.username) || !validatePassword(body.password)) {
-            return ResponseEntity.badRequest().body(ErrorMessage("An username or password is not valid"))
+        // NOTE no need to validate token here
+
+        if (validateUsernameAndPassword(body.username, body.password) != null){
+            return validateUsernameAndPassword(body.username, body.password)
         }
 
+        // check if user exist
         val user: User = userService.findUserByUsername(body.username)
             ?: return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorMessage("An user with username " + body.username + " does not exist"))
 
-        // validates password from body
+        // check if provided and database password matches
         if (!user.validatePassword(body.password)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ErrorMessage("Incorrect password"))
         }
 
-        val issuer = user.id.toString()
+        val accessToken = tokenUtils?.generateToken(user)
+            ?: return ResponseEntity.badRequest().body(ErrorMessage("An error occurred during the login"))
 
-        val jwt = Jwts.builder()
-            .setIssuer(issuer)
-            .setExpiration(Date(System.currentTimeMillis() + TOKEN_EXPIRATION_MS))
-            .signWith(SignatureAlgorithm.HS512, JWT_SECRET_KEY)
-            .compact()
-
-        return ResponseEntity.ok(jwt)
+        // return access token
+        val token = TokenDTO(accessToken)
+        return ResponseEntity.ok(token)
     }
 
-    private fun validateUsername(username: String): Boolean {
-        val MIN_LENGTH = 8
-        val MAX_LENGTH = 64
-        return (username.length >= MIN_LENGTH && username.length <= MAX_LENGTH)
+    /**
+     * Returns ResponseEntity if failed
+     */
+    private fun validateUsernameAndPassword(username: String, password: String) : ResponseEntity<Any>?{
+        val usernameValidation = validateUsername(username)
+        val passwordValidation = validatePassword(password)
+        if (usernameValidation.isNotBlank()) return ResponseEntity.badRequest().body(ErrorMessage(usernameValidation))
+        if (passwordValidation.isNotBlank()) return ResponseEntity.badRequest().body(ErrorMessage(passwordValidation))
+        return null
     }
 
-    private fun validatePassword(password: String): Boolean {
-        val MIN_LENGTH = 8
-        val MAX_LENGTH = 64
-        return (password.length >= MIN_LENGTH && password.length <= MAX_LENGTH)
+    private fun validateUsername(username: String): String {
+        if (username == null) return "Username is not defined"
+        return if (username.length !in USERNAME_MIN_LENGTH..USERNAME_MAX_LENGTH) "Username length must be between $USERNAME_MIN_LENGTH and $USERNAME_MAX_LENGTH characters." else ""
+    }
+
+    private fun validatePassword(password: String): String {
+        if (password == null) return "Password is not defined"
+        return if (password.length !in PASSWORD_MIN_LENGTH..PASSWORD_MAX_LENGTH) "Password length must be between $PASSWORD_MIN_LENGTH and $PASSWORD_MAX_LENGTH characters." else ""
     }
 }
