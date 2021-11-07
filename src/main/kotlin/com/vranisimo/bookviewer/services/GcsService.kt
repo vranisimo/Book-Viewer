@@ -2,10 +2,18 @@ package com.vranisimo.bookviewer.services
 
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.StorageOptions
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import java.io.FileOutputStream
+import java.io.PrintStream
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 object GcsService {
+    private val logger: Logger = LoggerFactory.getLogger(this.javaClass)
+
     private val storage: Storage = StorageOptions.getDefaultInstance().service
 
     @Value("\${com.vranisimo.bookviewer.gcs.bucket.book}")
@@ -21,12 +29,10 @@ object GcsService {
         uploadFile(BOOK_BUCKET_NAME, pdfData, isbn + PDF_EXTENSION)
     }
 
-    // TODO use in consumers
-    fun storeBookPage(isbn: String, pageNumber: Int, jpegData: ByteArray) {
+    fun uploadBookPage(isbn: String, pageNumber: Int, jpegData: ByteArray) {
         uploadFile(BOOK_PAGE_BUCKET_NAME, jpegData, isbn + "_" + pageNumber + JPEG_EXTENSION)
     }
 
-    // TODO use in consumers
     fun getBookPdf(isbn: String): ByteArray? {
         val bucketName = BOOK_BUCKET_NAME
         val bucket = storage.get(bucketName)
@@ -38,11 +44,26 @@ object GcsService {
         return blob.getContent()
     }
 
+    fun downloadPdf(isbn: String) : Path {
+        val bucket = storage.get(BOOK_BUCKET_NAME) ?: error("Bucket $BOOK_BUCKET_NAME does not exist!")
+
+        val pdfName = isbn + PDF_EXTENSION
+        val blob = bucket.get(pdfName) ?: error("PDF $pdfName does not exist!")
+
+        val localFilePath = Paths.get(pdfName)
+        val writeTo = PrintStream(FileOutputStream(localFilePath.toFile()))
+        writeTo.write(blob.getContent())
+        writeTo.close()
+
+        logger.info("$pdfName was successfully downloaded to $localFilePath.")
+        return localFilePath
+    }
+
     private fun uploadFile(bucketName: String, fileData: ByteArray, blobName: String) {
         val bucket = storage.get(bucketName)
 
         bucket.create(blobName, fileData)
-        println("$blobName was successfully uploaded to bucket $bucketName.")
+        logger.info("$blobName was successfully uploaded to bucket $bucketName.")
     }
 
     fun getBookPageSignedUrl(isbn: String, pageNumber: Int): String {
@@ -70,17 +91,7 @@ object GcsService {
             Storage.SignUrlOption.withV4Signature()
         )
 
-        println("Expired signed URL:\n$signUrl")
+        logger.info("Expired signed URL:\n$signUrl")
         return signUrl.toString()
     }
-
-    /**
-     * Examples
-     * upload test.txt book-pdf
-     * getSignedUrl test.txt book-pdf
-     */
-//    fun main(vararg args: String) {
-//        uploadFile(BOOK_BUCKET, "test.jpeg", "test.jpeg")
-//        getSignedUrl(BOOK_BUCKET, "test.jpeg")
-//    }
 }

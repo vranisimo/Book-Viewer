@@ -68,6 +68,8 @@ class UserResource(val userService: UserService) {
             return validateUsernameAndPassword(body.username, body.password)
         }
 
+        // TODO validate email address
+
         // check if user exist
         val user: User = userService.findUserByUsername(body.username)
             ?: return ResponseEntity.status(HttpStatus.NOT_FOUND)

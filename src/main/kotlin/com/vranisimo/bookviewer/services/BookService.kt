@@ -16,4 +16,8 @@ class BookService(val db: BookRepository) {
     fun storeBook(book: Book) {
         db.save(book)
     }
+
+    fun updateBook(book: Book) {
+        db.updateBook(book.isbn, book.page_count, book.processed_page_count)
+    }
 }

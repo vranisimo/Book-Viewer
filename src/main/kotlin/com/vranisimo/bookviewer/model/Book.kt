@@ -19,11 +19,9 @@ data class Book(
 )
 
 fun bookToJsonResponse(book: Book): String {
-    val gsonPretty = GsonBuilder().setPrettyPrinting().create()
-    return gsonPretty.toJson(book)
+    return GsonBuilder().setPrettyPrinting().create().toJson(book)
 }
 
 fun booksToJsonResponse(books: List<Book>): String {
-    val gsonPretty = GsonBuilder().setPrettyPrinting().create()
-    return gsonPretty.toJson(books)
+    return GsonBuilder().setPrettyPrinting().create().toJson(books)
 }

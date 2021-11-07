@@ -1,10 +1,8 @@
 package com.vranisimo.bookviewer.resources
 
 import com.vranisimo.bookviewer.Utils
-import com.vranisimo.bookviewer.model.Book
-import com.vranisimo.bookviewer.model.ErrorMessage
-import com.vranisimo.bookviewer.model.bookToJsonResponse
-import com.vranisimo.bookviewer.model.booksToJsonResponse
+import com.vranisimo.bookviewer.model.*
+import com.vranisimo.bookviewer.producer.PdfProducer
 import com.vranisimo.bookviewer.services.BookService
 import com.vranisimo.bookviewer.services.GcsService
 import org.slf4j.Logger
@@ -17,17 +15,18 @@ import org.springframework.web.multipart.MultipartFile
 
 @RestController
 @RequestMapping("/book")
-class BookResource(val bookService: BookService) {
+class BookResource(val bookService: BookService, val pdfProducer: PdfProducer) {
 
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass)
 
     @GetMapping("", produces = ["application/json"])
     fun getBookByIsbn(@RequestParam(required = false) isbn: String?): ResponseEntity<Any> {
         // TODO move outside
-        if (SecurityContextHolder.getContext().authentication == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+        if (SecurityContextHolder.getContext().authentication == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .build()
 
         // of no ISBN is provided, return all books
-        if (isbn == null){
+        if (isbn == null) {
             return ResponseEntity.ok(booksToJsonResponse(bookService.findBooks()))
         }
 
@@ -49,7 +48,8 @@ class BookResource(val bookService: BookService) {
         @RequestParam pageNumber: Int
     ): ResponseEntity<Any> {
         // TODO move outside
-        if (SecurityContextHolder.getContext().authentication == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+        if (SecurityContextHolder.getContext().authentication == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .build()
 
         // validate isbn
         if (!Utils.isIsbnValidISBN13(isbn)) {
@@ -86,9 +86,10 @@ class BookResource(val bookService: BookService) {
         @RequestParam isbn: String
     ): ResponseEntity<Any> {
         // TODO move outside
-        if (SecurityContextHolder.getContext().authentication == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+        if (SecurityContextHolder.getContext().authentication == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .build()
 
-        if (file == null){
+        if (file == null) {
             return ResponseEntity.badRequest().body(ErrorMessage("PDF file is missing"))
         }
 
@@ -107,8 +108,10 @@ class BookResource(val bookService: BookService) {
         }
 
         // allow PDF files only
-        if (!file.name.endsWith(".pdf")){
-            return ResponseEntity.badRequest().body(ErrorMessage("Only PDF files are allowed for upload"))
+        val pdfFilename: String = file.originalFilename ?: ""
+        if (!pdfFilename.endsWith(".pdf")) {
+            return ResponseEntity.badRequest()
+                .body(ErrorMessage("Only PDF files are allowed for upload, provided file: $pdfFilename"))
         }
 
         // insert book row into the database
@@ -118,9 +121,16 @@ class BookResource(val bookService: BookService) {
         // store book PDF on object storage
         GcsService.storeBookPdf(isbnDigitsOnly, file.bytes)
 
-        // TODO count PDF page size and store it into database
-        // TODO send message to kafka queue
+        // send initial messages to kafka queue
+        sendInitialPdfProcessMessage(book)
 
         return ResponseEntity.ok("File is successfully uploaded")
+    }
+
+    fun sendInitialPdfProcessMessage(book: Book) {
+        val message = ProcessPdfMessage(book.isbn, 1)
+
+        logger.info("Sending initial PDF message")
+        pdfProducer.sendMessage(message)
     }
 }
