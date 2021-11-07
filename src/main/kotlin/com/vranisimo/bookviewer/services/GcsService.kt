@@ -33,17 +33,6 @@ object GcsService {
         uploadFile(BOOK_PAGE_BUCKET_NAME, jpegData, isbn + "_" + pageNumber + JPEG_EXTENSION)
     }
 
-    fun getBookPdf(isbn: String): ByteArray? {
-        val bucketName = BOOK_BUCKET_NAME
-        val bucket = storage.get(bucketName)
-            ?: error("Bucket $bucketName does not exist! To see your existing buckets, use command 'info'.")
-
-        val blob = bucket.get(isbn)
-            ?: error("Blob $isbn does not exist! To see blobs in bucket $bucketName, use command 'info $bucketName'.")
-
-        return blob.getContent()
-    }
-
     fun downloadPdf(isbn: String) : Path {
         val bucket = storage.get(BOOK_BUCKET_NAME) ?: error("Bucket $BOOK_BUCKET_NAME does not exist!")
 
