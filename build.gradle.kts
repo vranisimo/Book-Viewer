@@ -21,33 +21,23 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    runtimeOnly("org.postgresql:postgresql")
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    implementation("com.google.cloud:google-cloud-storage:2.1.9")
-
-    implementation("io.ktor:ktor-auth:1.6.4")
-    implementation("io.ktor:ktor-auth-jwt:1.6.4")
-
-    implementation("org.springframework.kafka:spring-kafka:2.7.8")
-
     implementation ("org.springframework.boot:spring-boot-starter-security")
     implementation("javax.persistence:javax.persistence-api:2.2")
 
+    // Google Cloud Storage
+    implementation("com.google.cloud:google-cloud-storage:2.1.9")
+
+    // postgres
+    runtimeOnly("org.postgresql:postgresql")
+
+    // jwt
     implementation("io.jsonwebtoken:jjwt:0.9.1")
+
+    // Kafka
+    implementation("org.springframework.kafka:spring-kafka:2.7.8")
     implementation("javax.xml.bind:jaxb-api:2.3.1")
 
-
-
-//    compile(kotlin("stdlib"))
-//    compile(kotlin("reflect"))
-//    implementation("org.apache.kafka:kafka-clients:2.1.0")
-//    implementation("org.apache.kafka:kafka-streams:2.1.0")
-//    implementation("org.apache.kafka:connect-runtime:2.1.0")
-//    implementation("io.confluent:kafka-json-serializer:5.0.1")
-//    implementation("org.slf4j:slf4j-api:1.7.6")
-//    implementation("org.slf4j:slf4j-log4j12:1.7.6")
-//    implementation("com.fasterxml.jackson.core:jackson-databind:[2.8.11.1,)")
-//    implementation("com.google.code.gson:gson:2.2.4")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 
 tasks.withType<KotlinCompile> {

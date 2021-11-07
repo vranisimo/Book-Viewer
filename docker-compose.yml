@@ -1,0 +1,71 @@
+version: 'latest'
+
+services:
+  book_viewer:
+    container_name: book_viewer
+    command: /bin/sh -c "./installMagick.sh && java -jar book_viewer.jar"
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    image: book_viewer:latest
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=classpath:gcs_credentials.json
+    ports:
+      - "8080:8080"
+    networks:
+      book_viewer_network:
+        ipv4_address: 172.16.0.2
+    depends_on:
+      - "db"
+      - "zookeeper"
+      - "kafka"
+  db:
+    container_name: postgres
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pass123
+    ports:
+      - "5432:5432"
+    networks:
+      book_viewer_network:
+        ipv4_address: 172.16.0.3
+    volumes:
+      - .docker/sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+#    ports:
+#      - 22181:2181
+    networks:
+      book_viewer_network:
+        ipv4_address: 172.16.0.4
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+#    ports:
+#      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      book_viewer_network:
+        ipv4_address: 172.16.0.5
+
+networks:
+  book_viewer_network:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 172.16.0.0/24
+         gateway: 172.16.0.1

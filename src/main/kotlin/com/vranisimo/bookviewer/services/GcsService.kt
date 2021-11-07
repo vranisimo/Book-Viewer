@@ -1,20 +1,30 @@
 package com.vranisimo.bookviewer.services
 
+import com.google.auth.Credentials
+import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.StorageOptions
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.PrintStream
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
+
 object GcsService {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass)
 
-    private val storage: Storage = StorageOptions.getDefaultInstance().service
+    @Value("\${spring.cloud.gcp.project-id}")
+    private val GCS_PROJECT_ID: String = ""
+
+//    private val storage: Storage = StorageOptions.getDefaultInstance().service
+    // NOTE below two lines are workaround for the issue with fetching GCS credential filepath property
+    val credentials: Credentials = GoogleCredentials.fromStream(FileInputStream("gcs_credentials.json"))
+    val storage = StorageOptions.newBuilder().setCredentials(credentials).setProjectId(GCS_PROJECT_ID).build().service
 
     @Value("\${com.vranisimo.bookviewer.gcs.bucket.book}")
     private val BOOK_BUCKET_NAME: String = "book_pdf"

@@ -2,7 +2,7 @@ package com.vranisimo.bookviewer
 
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
-
+import java.util.regex.Pattern
 
 class Utils {
     /**
@@ -37,7 +37,18 @@ class Utils {
             if (!isValid) {
                 logger.error("ISBN '$isbn' is not valid")
             }
-            return isValid;
+            return isValid
+        }
+
+        fun isEmailValid(email: String): Boolean {
+            return Pattern.compile(
+                "^(([\\w-]+\\.)+[\\w-]+|([a-zA-Z]|[\\w-]{2,}))@"
+                        + "((([0-1]?[0-9]{1,2}|25[0-5]|2[0-4][0-9])\\.([0-1]?"
+                        + "[0-9]{1,2}|25[0-5]|2[0-4][0-9])\\."
+                        + "([0-1]?[0-9]{1,2}|25[0-5]|2[0-4][0-9])\\.([0-1]?"
+                        + "[0-9]{1,2}|25[0-5]|2[0-4][0-9]))|"
+                        + "([a-zA-Z]+[\\w-]+\\.)+[a-zA-Z]{2,4})$"
+            ).matcher(email).matches()
         }
     }
 }

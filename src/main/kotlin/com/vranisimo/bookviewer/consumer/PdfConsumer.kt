@@ -89,7 +89,15 @@ class PdfConsumer(val bookService: BookService, val pdfProducer: PdfProducer) {
     }
 
     fun countPages(pdfFilePath: String): Int {
-        val countPagesCommand = "magick identify -density 12 $pdfFilePath"
+        val countPagesCommand : String
+
+        var isLocalEnvironment = System.getenv("IS_LOCAL_ENVIRONMENT")
+        if (isLocalEnvironment != null && isLocalEnvironment.equals("true")) {
+            countPagesCommand = "magick identify -density 12 $pdfFilePath"  // magick version 7
+        } else {
+            // running on docker
+            countPagesCommand = "identify -density 12 $pdfFilePath"   // magick version 6
+        }
 
         val process: Process = Runtime.getRuntime().exec(countPagesCommand)
         val reader = BufferedReader(InputStreamReader(process.inputStream))
@@ -107,8 +115,16 @@ class PdfConsumer(val bookService: BookService, val pdfProducer: PdfProducer) {
     }
 
     fun extractImageToLocalFolder(pdfFilePath: String, pageNumber: Int, outputFilename: String): Boolean {
+        val extractImageCommand : String
         val pageNumberFromZero = pageNumber - 1
-        val extractImageCommand = "magick convert $pdfFilePath[$pageNumberFromZero] $outputFilename"
+
+        var isLocalEnvironment = System.getenv("IS_LOCAL_ENVIRONMENT")
+        if (isLocalEnvironment != null && isLocalEnvironment.equals("true")) {
+            extractImageCommand = "magick convert $pdfFilePath[$pageNumberFromZero] $outputFilename"  // magick version 7
+        } else {
+            // running on docker
+            extractImageCommand = "convert $pdfFilePath[$pageNumberFromZero] $outputFilename"    // magick version 6
+        }
 
         val process: Process = Runtime.getRuntime().exec(extractImageCommand)
 

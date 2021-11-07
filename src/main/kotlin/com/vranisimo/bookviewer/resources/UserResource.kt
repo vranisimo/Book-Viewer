@@ -1,5 +1,6 @@
 package com.vranisimo.bookviewer.resources
 
+import com.vranisimo.bookviewer.Utils
 import com.vranisimo.bookviewer.jwt.TokenUtil
 import com.vranisimo.bookviewer.model.*
 import com.vranisimo.bookviewer.services.UserService
@@ -36,6 +37,11 @@ class UserResource(val userService: UserService) {
             return validateUsernameAndPassword(body.username, body.password)
         }
 
+        // validate email address
+        if (!Utils.isEmailValid(body.email)) {
+            return ResponseEntity.badRequest().body(ErrorMessage("Email is not valid"))
+        }
+
         // check if user with the same username already exist
         if (userService.findUserByUsername(body.username) != null) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -68,8 +74,6 @@ class UserResource(val userService: UserService) {
             return validateUsernameAndPassword(body.username, body.password)
         }
 
-        // TODO validate email address
-
         // check if user exist
         val user: User = userService.findUserByUsername(body.username)
             ?: return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -101,12 +105,12 @@ class UserResource(val userService: UserService) {
     }
 
     private fun validateUsername(username: String): String {
-        if (username == null) return "Username is not defined"
+        if (username.isBlank()) return "Username is not defined"
         return if (username.length !in USERNAME_MIN_LENGTH..USERNAME_MAX_LENGTH) "Username length must be between $USERNAME_MIN_LENGTH and $USERNAME_MAX_LENGTH characters." else ""
     }
 
     private fun validatePassword(password: String): String {
-        if (password == null) return "Password is not defined"
+        if (password.isBlank()) return "Password is not defined"
         return if (password.length !in PASSWORD_MIN_LENGTH..PASSWORD_MAX_LENGTH) "Password length must be between $PASSWORD_MIN_LENGTH and $PASSWORD_MAX_LENGTH characters." else ""
     }
 }

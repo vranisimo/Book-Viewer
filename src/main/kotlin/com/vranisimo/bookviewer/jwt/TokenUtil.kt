@@ -15,8 +15,8 @@ class TokenUtil : Serializable {
     @Value("\${jwt.secret}")
     private val jwtSecret: String? = null
 
-    @Value("\${com.vranisimo.bookviewer.jwt.tokenexpirationms}")
-    private val jwtTokenValidityMs: Int = 3600 * 1000 // default 1 hour
+    @Value("\${com.vranisimo.bookviewer.jwt.tokenexpirationminutes}")
+    private val jwtTokenValidityMinutes: Int = 60 // use 1 hour as default if not set in properties
 
     fun getUsernameFromToken(token: String?): String {
         return getTokenClaimsBody(token).subject
@@ -36,11 +36,12 @@ class TokenUtil : Serializable {
     }
 
     fun generateToken(user: User): String {
+        val tokenValidatyInMs = jwtTokenValidityMinutes * 60 * 1000
         return Jwts.builder()
             .setIssuer(user.id.toString())  // issues is the User id from database
             .setSubject(user.username)
             .setIssuedAt(Date(System.currentTimeMillis()))
-            .setExpiration(Date(System.currentTimeMillis() + jwtTokenValidityMs))
+            .setExpiration(Date(System.currentTimeMillis() + tokenValidatyInMs))
             .signWith(SignatureAlgorithm.HS512, jwtSecret).compact()
     }
 
