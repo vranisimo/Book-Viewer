@@ -18,7 +18,6 @@ services:
     depends_on:
       - "db"
       - "zookeeper"
-      - "kafka"
   db:
     container_name: postgres
     image: postgres
@@ -47,8 +46,6 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:latest
-    depends_on:
-      - zookeeper
 #    ports:
 #      - 29092:29092
     environment:
@@ -61,6 +58,9 @@ services:
     networks:
       book_viewer_network:
         ipv4_address: 172.16.0.5
+    depends_on:
+      - "zookeeper"
+      - "book_viewer"
 
 networks:
   book_viewer_network:

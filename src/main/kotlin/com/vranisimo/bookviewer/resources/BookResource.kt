@@ -61,7 +61,7 @@ class BookResource(val bookService: BookService, val pdfProducer: PdfProducer) {
                 .body(ErrorMessage("Incorrect page number $pageNumber. Page number starts from 1"))
         }
 
-        val isbnDigitsOnly = Utils.getIsbnDigitsOnly(isbn);
+        val isbnDigitsOnly = Utils.getIsbnDigitsOnly(isbn)
 
         // return a specific book
         val book: Book = bookService.findBook(isbnDigitsOnly)
@@ -124,7 +124,7 @@ class BookResource(val bookService: BookService, val pdfProducer: PdfProducer) {
         // send initial messages to kafka queue
         sendInitialPdfProcessMessage(book)
 
-        return ResponseEntity.ok("File is successfully uploaded")
+        return ResponseEntity.ok(Message("File is successfully uploaded"))
     }
 
     fun sendInitialPdfProcessMessage(book: Book) {
